@@ -97,6 +97,14 @@ func (c *Config) LoadFile(filePath string) error {
 		}
 	}
 
+	for path, cfg := range pathConfigs {
+		match, err := filepath.Match(filepath.Clean(path), cwd)
+		if err == nil && match {
+			*c = cfg
+			return nil
+		}
+	}
+
 	// try matching on relative sub-paths (e.g. config key without trailing slash)
 	for path, cfg := range pathConfigs {
 		if strings.HasPrefix(cwd, filepath.Clean(path)+string(filepath.Separator)) {

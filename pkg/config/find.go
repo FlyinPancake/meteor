@@ -10,7 +10,10 @@ import (
 )
 
 const (
-	configFile = ".meteor.json"
+	configFile     = ".meteor.json"
+	reposFile      = "repos"
+	globalConfig   = "config.json"
+	xdgConfigDir   = ".config/meteor"
 )
 
 // FindConfigFile will find the config files based in the rules below:
@@ -50,7 +53,13 @@ func FindConfigFile(fs afero.Fs, getWD func() (string, error), getHome func() (s
 		currentDir = filepath.Join(currentDir, "..")
 	}
 
-	xdgConfigFile := filepath.Join(homeDir, ".config/meteor/config.json")
+	xdgReposFile := filepath.Join(homeDir, xdgConfigDir, reposFile)
+	log.Debug("checking for repo config file", "path", xdgReposFile)
+	if _, err := fs.Stat(xdgReposFile); err == nil {
+		return xdgReposFile, nil
+	}
+
+	xdgConfigFile := filepath.Join(homeDir, xdgConfigDir, globalConfig)
 	log.Debug("checking for config file", "path", xdgConfigFile)
 	if _, err := fs.Stat(xdgConfigFile); err == nil {
 		return xdgConfigFile, nil

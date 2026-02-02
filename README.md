@@ -47,12 +47,13 @@ config file closest to the current working directory will be preferred. This
 enables you to have different configs for different parent directories, such as
 one for your personal work, one for your actual work, one for open source work
 etc. For global configurations you can create a `config.json` file in the
-`~/.config/meteor/` directory. Global configs can contain multiple project
-entries keyed by their absolute path:
+`~/.config/meteor/` directory. To keep repo-specific settings out of version
+control, add a `repos` file in `~/.config/meteor/` that maps repo paths (supports
+globs) to configs, leaving the global `config.json` unchanged:
 
 ```json
 {
-  "/absolute/path/to/project": {
+  "/absolute/path/to/project-*": {
     "boards": [{ "name": "COMP" }]
   },
   "/absolute/path/to/other": {}
