@@ -16,12 +16,12 @@ const (
 	xdgConfigDir = ".config/meteor"
 )
 
-// FindConfigFile will find the config files based in the rules below:
-// 1. If the current directory contains a .meteor.json file, it will be used.
-// 2. If the current directory does not contain a .meteor.json file, the parent
-// 3. IF parent doesn't contain the .meteor.json file, the search will continue until the home directory is reached.
-// 4. If no .meteor.json file is found, look in ~/.config/meteor/config.json
-// 5. If no .meteor.json file is found, return an error
+// FindConfigFile finds config files using the following order:
+// 1. If the current directory contains configFile (.meteor.json), it will be used.
+// 2. Traverse parents (within xdgConfigDir scope) for configFile and return the first found.
+// 3. Check xdgConfigDir/reposFile (~/.config/meteor/repos.json); if present, return it.
+// 4. Check xdgConfigDir/globalConfig (~/.config/meteor/config.json); if present, return it.
+// 5. If none are found, return an error.
 func FindConfigFile(fs afero.Fs, getWD func() (string, error), getHome func() (string, error)) (string, error) {
 	if _, err := fs.Stat(configFile); err == nil {
 		return filepath.Join("./", configFile), nil

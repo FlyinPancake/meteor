@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -50,30 +51,16 @@ func (c *Config) LoadFile(filePath string) error {
 		return fmt.Errorf("error parsing the json file: %w", err)
 	}
 
-	knownKeys := map[string]struct{}{
-		"showIntro":                 {},
-		"commitTitleCharLimit":      {},
-		"commitBodyCharLimit":       {},
-		"commitBodyLineLength":      {},
-		"messageTemplate":           {},
-		"messageWithTicketTemplate": {},
-		"prefixes":                  {},
-		"coauthors":                 {},
-		"boards":                    {},
-		"scopes":                    {},
-		"readContributorsFromGit":   {},
-	}
-
-	isSingleConfig := true
+	pathLike := false
 	for key := range raw {
-		if _, ok := knownKeys[key]; !ok {
-			isSingleConfig = false
+		if strings.ContainsAny(key, `/\`) || strings.ContainsAny(key, "*?[") || filepath.IsAbs(key) {
+			pathLike = true
 			break
 		}
 	}
 
-	if isSingleConfig {
-		if err := json.Unmarshal(f, &c); err != nil {
+	if !pathLike {
+		if err := json.Unmarshal(f, c); err != nil {
 			return fmt.Errorf("error parsing the json file: %w", err)
 		}
 		return nil
@@ -90,28 +77,53 @@ func (c *Config) LoadFile(filePath string) error {
 		return fmt.Errorf("error parsing the json file: %w", err)
 	}
 
+	type match struct {
+		pattern   string
+		cleaned   string
+		cfg       Config
+		matchType int
+	}
+
+	const (
+		matchExact = iota
+		matchGlob
+		matchPrefix
+	)
+
+	matches := make([]match, 0)
+
 	for path, cfg := range pathConfigs {
-		if filepath.Clean(path) == cwd {
-			*c = cfg
-			return nil
+		cleaned := filepath.Clean(path)
+
+		if cleaned == cwd {
+			matches = append(matches, match{pattern: path, cleaned: cleaned, cfg: cfg, matchType: matchExact})
+			continue
+		}
+
+		if ok, err := filepath.Match(cleaned, cwd); err == nil && ok {
+			matches = append(matches, match{pattern: path, cleaned: cleaned, cfg: cfg, matchType: matchGlob})
+			continue
+		}
+
+		if strings.HasPrefix(cwd, cleaned+string(filepath.Separator)) {
+			matches = append(matches, match{pattern: path, cleaned: cleaned, cfg: cfg, matchType: matchPrefix})
 		}
 	}
 
-	for path, cfg := range pathConfigs {
-		match, err := filepath.Match(filepath.Clean(path), cwd)
-		if err == nil && match {
-			*c = cfg
-			return nil
-		}
+	if len(matches) == 0 {
+		return ErrNoMatchingPath
 	}
 
-	// try matching on relative sub-paths (e.g. config key without trailing slash)
-	for path, cfg := range pathConfigs {
-		if strings.HasPrefix(cwd, filepath.Clean(path)+string(filepath.Separator)) {
-			*c = cfg
-			return nil
+	sort.Slice(matches, func(i, j int) bool {
+		if matches[i].matchType != matches[j].matchType {
+			return matches[i].matchType < matches[j].matchType
 		}
-	}
+		if len(matches[i].cleaned) != len(matches[j].cleaned) {
+			return len(matches[i].cleaned) > len(matches[j].cleaned)
+		}
+		return matches[i].pattern < matches[j].pattern
+	})
 
-	return ErrNoMatchingPath
+	*c = matches[0].cfg
+	return nil
 }
