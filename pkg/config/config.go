@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/log"
 )
@@ -29,6 +31,8 @@ func New() *Config {
 	return &Config{}
 }
 
+var ErrNoMatchingPath = errors.New("no matching config for current path")
+
 func (c *Config) LoadFile(filePath string) error {
 	log.Debug("loading config file", "path", filePath)
 
@@ -41,9 +45,65 @@ func (c *Config) LoadFile(filePath string) error {
 		return fmt.Errorf("error opening file: %w", err)
 	}
 
-	if err := json.Unmarshal(f, &c); err != nil {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(f, &raw); err != nil {
 		return fmt.Errorf("error parsing the json file: %w", err)
 	}
 
-	return nil
+	knownKeys := map[string]struct{}{
+		"showIntro":                 {},
+		"commitTitleCharLimit":      {},
+		"commitBodyCharLimit":       {},
+		"commitBodyLineLength":      {},
+		"messageTemplate":           {},
+		"messageWithTicketTemplate": {},
+		"prefixes":                  {},
+		"coauthors":                 {},
+		"boards":                    {},
+		"scopes":                    {},
+		"readContributorsFromGit":   {},
+	}
+
+	isSingleConfig := true
+	for key := range raw {
+		if _, ok := knownKeys[key]; !ok {
+			isSingleConfig = false
+			break
+		}
+	}
+
+	if isSingleConfig {
+		if err := json.Unmarshal(f, &c); err != nil {
+			return fmt.Errorf("error parsing the json file: %w", err)
+		}
+		return nil
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("error getting current working directory: %w", err)
+	}
+	cwd = filepath.Clean(cwd)
+
+	var pathConfigs map[string]Config
+	if err := json.Unmarshal(f, &pathConfigs); err != nil {
+		return fmt.Errorf("error parsing the json file: %w", err)
+	}
+
+	for path, cfg := range pathConfigs {
+		if filepath.Clean(path) == cwd {
+			*c = cfg
+			return nil
+		}
+	}
+
+	// try matching on relative sub-paths (e.g. config key without trailing slash)
+	for path, cfg := range pathConfigs {
+		if strings.HasPrefix(cwd, filepath.Clean(path)+string(filepath.Separator)) {
+			*c = cfg
+			return nil
+		}
+	}
+
+	return ErrNoMatchingPath
 }
