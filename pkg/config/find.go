@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	configFile     = ".meteor.json"
-	reposFile      = "repos"
-	globalConfig   = "config.json"
-	xdgConfigDir   = ".config/meteor"
+	configFile   = ".meteor.json"
+	reposFile    = "repos.json"
+	globalConfig = "config.json"
+	xdgConfigDir = ".config/meteor"
 )
 
 // FindConfigFile will find the config files based in the rules below:

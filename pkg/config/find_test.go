@@ -85,6 +85,22 @@ func TestFindConfigFile(t *testing.T) {
 		assertEqual(t, expected, got)
 		assertIsNotError(t, err)
 	})
+	t.Run("repo config in xdg config dir", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		currentDir := "/home/user/project"
+		configPath := filepath.Join(homeDir, ".config/meteor/repos.json")
+		fs.MkdirAll(filepath.Dir(configPath), 0755)
+		content := "{}"
+		writeErr := afero.WriteFile(fs, configPath, []byte(content), 0644)
+		assertIsNotError(t, writeErr)
+		expected := configPath
+		got, err := FindConfigFile(fs,
+			func() (string, error) { return currentDir, nil },
+			func() (string, error) { return homeDir, nil },
+		)
+		assertEqual(t, expected, got)
+		assertIsNotError(t, err)
+	})
 	t.Run("WD not in home directory", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		currentDir := "/var/www/hosts/project"

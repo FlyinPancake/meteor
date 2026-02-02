@@ -120,3 +120,32 @@ func TestLoadFilePathConfigGlobMatch(t *testing.T) {
 		t.Fatalf("expected showIntro to be false for glob match, got %+v", c.ShowIntro)
 	}
 }
+
+func TestLoadFilePathConfigGlobMatchReposName(t *testing.T) {
+	root := t.TempDir()
+	project := filepath.Join(root, "project-a")
+	err := os.MkdirAll(project, 0o755)
+	if err != nil {
+		t.Fatalf("mkdir project: %v", err)
+	}
+
+	configPath := filepath.Join(root, "repos.json")
+	content := []byte(`{ "` + filepath.Join(root, "project-*") + `": { "showIntro": false } }`)
+	err = os.WriteFile(configPath, content, 0o644)
+	if err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	originalWD, _ := os.Getwd()
+	defer os.Chdir(originalWD)
+	_ = os.Chdir(project)
+
+	c := New()
+	if err := c.LoadFile(configPath); err != nil {
+		t.Fatalf("LoadFile returned error: %v", err)
+	}
+
+	if c.ShowIntro == nil || *c.ShowIntro {
+		t.Fatalf("expected showIntro to be false for glob match, got %+v", c.ShowIntro)
+	}
+}
