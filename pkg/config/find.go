@@ -10,15 +10,18 @@ import (
 )
 
 const (
-	configFile = ".meteor.json"
+	configFile   = ".meteor.json"
+	reposFile    = "repos.json"
+	globalConfig = "config.json"
+	xdgConfigDir = ".config/meteor"
 )
 
-// FindConfigFile will find the config files based in the rules below:
-// 1. If the current directory contains a .meteor.json file, it will be used.
-// 2. If the current directory does not contain a .meteor.json file, the parent
-// 3. IF parent doesn't contain the .meteor.json file, the search will continue until the home directory is reached.
-// 4. If no .meteor.json file is found, look in ~/.config/meteor/config.json
-// 5. If no .meteor.json file is found, return an error
+// FindConfigFile finds config files using the following order:
+// 1. If the current directory contains configFile (.meteor.json), it will be used.
+// 2. Traverse parent directories within the user's home directory for configFile and return the first found.
+// 3. Check xdgConfigDir/reposFile (~/.config/meteor/repos.json); if present, return it.
+// 4. Check xdgConfigDir/globalConfig (~/.config/meteor/config.json); if present, return it.
+// 5. If none are found, return an error.
 func FindConfigFile(fs afero.Fs, getWD func() (string, error), getHome func() (string, error)) (string, error) {
 	if _, err := fs.Stat(configFile); err == nil {
 		return filepath.Join("./", configFile), nil
@@ -50,7 +53,13 @@ func FindConfigFile(fs afero.Fs, getWD func() (string, error), getHome func() (s
 		currentDir = filepath.Join(currentDir, "..")
 	}
 
-	xdgConfigFile := filepath.Join(homeDir, ".config/meteor/config.json")
+	xdgReposFile := filepath.Join(homeDir, xdgConfigDir, reposFile)
+	log.Debug("checking for repo config file", "path", xdgReposFile)
+	if _, err := fs.Stat(xdgReposFile); err == nil {
+		return xdgReposFile, nil
+	}
+
+	xdgConfigFile := filepath.Join(homeDir, xdgConfigDir, globalConfig)
 	log.Debug("checking for config file", "path", xdgConfigFile)
 	if _, err := fs.Stat(xdgConfigFile); err == nil {
 		return xdgConfigFile, nil
