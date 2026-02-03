@@ -18,7 +18,7 @@ const (
 
 // FindConfigFile finds config files using the following order:
 // 1. If the current directory contains configFile (.meteor.json), it will be used.
-// 2. Traverse parents (within xdgConfigDir scope) for configFile and return the first found.
+// 2. Traverse parent directories within the user's home directory for configFile and return the first found.
 // 3. Check xdgConfigDir/reposFile (~/.config/meteor/repos.json); if present, return it.
 // 4. Check xdgConfigDir/globalConfig (~/.config/meteor/config.json); if present, return it.
 // 5. If none are found, return an error.

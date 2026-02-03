@@ -90,19 +90,29 @@ func (c *Config) LoadFile(filePath string) error {
 		matchPrefix
 	)
 
+	ancestors := []string{cwd}
+	for dir := filepath.Dir(cwd); dir != "/" && dir != "." && dir != string(filepath.Separator); dir = filepath.Dir(dir) {
+		ancestors = append(ancestors, dir)
+		if dir == filepath.Dir(dir) {
+			break
+		}
+	}
+
 	matches := make([]match, 0)
 
 	for path, cfg := range pathConfigs {
 		cleaned := filepath.Clean(path)
 
-		if cleaned == cwd {
-			matches = append(matches, match{pattern: path, cleaned: cleaned, cfg: cfg, matchType: matchExact})
-			continue
-		}
+		for _, candidate := range ancestors {
+			if cleaned == candidate {
+				matches = append(matches, match{pattern: path, cleaned: cleaned, cfg: cfg, matchType: matchExact})
+				break
+			}
 
-		if ok, err := filepath.Match(cleaned, cwd); err == nil && ok {
-			matches = append(matches, match{pattern: path, cleaned: cleaned, cfg: cfg, matchType: matchGlob})
-			continue
+			if ok, err := filepath.Match(cleaned, candidate); err == nil && ok {
+				matches = append(matches, match{pattern: path, cleaned: cleaned, cfg: cfg, matchType: matchGlob})
+				break
+			}
 		}
 
 		if strings.HasPrefix(cwd, cleaned+string(filepath.Separator)) {
@@ -111,7 +121,8 @@ func (c *Config) LoadFile(filePath string) error {
 	}
 
 	if len(matches) == 0 {
-		return ErrNoMatchingPath
+		log.Debug("no matching path in config; leaving config unchanged", "cwd", cwd, "path", filePath)
+		return nil
 	}
 
 	sort.Slice(matches, func(i, j int) bool {
